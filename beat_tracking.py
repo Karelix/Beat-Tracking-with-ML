@@ -6,44 +6,45 @@ import os
 import pandas as pd
 import json
 import math
+import random
 
-def audiogen():
-  l = []
-  for root, dirs, files in os.walk('.'):
-    for filename in files:
-      ext = os.path.splitext(filename)[1]
-      if ext == ".mp3" or ext == ".flac" or ext == ".wav":
-        l.append(os.path.join(root, filename))
-  return l
+#def audiogen():
+#  l = []
+#  for root, dirs, files in os.walk('.'):
+#    for filename in files:
+#      ext = os.path.splitext(filename)[1]
+#      if ext == ".mp3" or ext == ".flac" or ext == ".wav":
+#        l.append(os.path.join(root, filename))
+#  return l
 
-def load_songs(songs,duration):
+def load_songs(batch,duration,offset):
   l = []
-  for song in songs:
-    print(song)
-    y,sr = librosa.load(song,duration=duration)
+  for (n,ext) in batch:
+    print('track'+str(n)+ext)
+    y,sr = librosa.load('tracks/track'+str(n)+ext,duration=duration,offset=offset)
     #tempo, beat_frames = librosa.beat.beat_track(y=y,sr=sr)
     l.append(y)
   return l
 
-def mel_upsample(mel,rate):
-  mel_up = []
-  mel = mel.transpose()
-  for frame in mel[:,]:
-    for i in range(int(rate)):
-      mel_up.append(frame)
-  mel_up = np.array(mel_up).transpose()
-  return mel_up
+#def mel_upsample(mel,rate):
+#  mel_up = []
+#  mel = mel.transpose()
+#  for frame in mel[:,]:
+#    for i in range(int(rate)):
+#      mel_up.append(frame)
+#  mel_up = np.array(mel_up).transpose()
+#  return mel_up
 
-def gen_times(sr,hops,duration,offset):
-  frames_per_sec = math.floor(sr/hops)
-  interval = 1/frames_per_sec
-  curr = offset
-  fin = offset + duration
-  l = []
-  while curr <= fin:
-    l.append(curr)
-    curr += interval
-  return l
+#def gen_times(sr,hops,duration,offset):
+#  frames_per_sec = math.floor(sr/hops)
+#  interval = 1/frames_per_sec
+#  curr = offset
+#  fin = offset + duration
+#  l = []
+#  while curr <= fin:
+#    l.append(curr)
+#    curr += interval
+#  return l
      
 def gen_ground_truth(time_list,sr,hops,duration,offset):
   frames_per_sec = math.floor(sr/hops)
@@ -68,22 +69,123 @@ def gen_ground_truth(time_list,sr,hops,duration,offset):
         curr += interval
   return ground_truth
 
+def random_batch(exc):
+  nums = []
+  batch_list = []
+  batch = 32
+  for i in range(batch):
+    n = random.randint(0,66)
+    while n in nums or n in exc:
+      n = random.randint(0,66)
+    mp3 = os.path.exists('tracks/track'+str(n)+'.mp3')
+    flac = os.path.exists('tracks/track'+str(n)+'.flac')
+    if mp3:
+      batch_list.append((n,'.mp3'))
+      nums.append(n)
+    elif flac:
+      batch_list.append((n,'.flac'))
+      nums.append(n)
+    else:
+      batch_list.append((n,'.m4a'))
+      nums.append(n)
+  return batch_list
+    
+def excluded_tracks():
+  exc = []
+  for i in range(67):
+    mp3 = os.path.exists('tracks/track'+str(i)+'.mp3')
+    flac = os.path.exists('tracks/track'+str(i)+'.flac')
+    m4a = os.path.exists('tracks/track'+str(i)+'.m4a')
+    if not mp3 and not m4a and not flac:
+      exc.append(i)
+  return exc
+
 
 
 # Preprocessing
-  
-# Loading the dataset
-  
-nft_large = 4096
-nft_medium = 2048
-nft_small = 512
 
+# Tracks I did not find
+exc = excluded_tracks()
+
+# Load the dataset
 with open('../Datasets/songs.json') as f:
    dataset = json.load(f)
 
 dataset = pd.DataFrame(dataset)
+#dataset = dataset.iloc[[i for i in range(67) if i not in exc],:]
+# Times of beats in every track 
 beats = dataset.iloc[:,2].values
-ground_truth_radiohead = gen_ground_truth(beats[0],22050,512/4,3,12)
+
+# Windows and Hop length tha I use for STFT and sampling rate for loading the tracks
+nft_large = 4096
+nft_medium = 2048
+nft_small = 512
+hops = nft_small/4
+sr = 22050
+# Initialising RNN
+model = Sequential()
+
+# Input Layer
+
+
+
+
+
+
+# Generate train batch for current epoch
+batch_list = random_batch(exc)
+# Load the waves for the current epoch
+waves = load_songs(batch_list,3,30)
+# Generate ground truths for the current epoch
+ground_truths = [gen_ground_truth(beats[i],22050,hops,3,30) for (i,_) in batch_list]
+
+# Generate training inputs for the current epoch
+
+
+
+mel_large =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+mel_medium =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+mel_small =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+
+x_train=[]
+for i in range()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
