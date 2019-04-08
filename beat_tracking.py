@@ -122,34 +122,53 @@ nft_medium = 2048
 nft_small = 512
 hops = nft_small/4
 sr = 22050
+
+# Building RNN
+from keras.models import Sequential
+from keras.layers import Dense, TimeDistributed
+from keras.layers import LSTM
+from keras.layers import Dropout
+from keras.layers import Bidirectional
+
 # Initialising RNN
 model = Sequential()
 
 # Input Layer
+units = 256
+model.add(Bidirectional(LSTM(units=units,return_sequences=True),input_shape=))
 
+# Second Layer
+model.add(Bidirectional(LSTM(units=units,return_sequences=True)))
 
+# Output Layer
+output_units = 517
+model.add(Dense(output_units=output_units))
 
-
-
-
-# Generate train batch for current epoch
-batch_list = random_batch(exc)
-# Load the waves for the current epoch
-waves = load_songs(batch_list,3,30)
-# Generate ground truths for the current epoch
-ground_truths = [gen_ground_truth(beats[i],22050,hops,3,30) for (i,_) in batch_list]
-
-# Generate training inputs for the current epoch
-
-
-
-mel_large =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-mel_medium =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-mel_small =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-
-x_train=[]
-for i in range()
-
+for epoch in range(100):
+  # Generate train batch for current epoch
+  batch_list = random_batch(exc)
+  # Load the waves for the current epoch
+  waves = load_songs(batch_list,3,30)
+  # Generate ground truths for the current epoch
+  ground_truths = [gen_ground_truth(beats[i],22050,hops,3,30) for (i,_) in batch_list]
+  
+  # Generate training inputs for the current epoch
+  mel_large =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+  mel_medium =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+  mel_small =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+  x_train = mel_large.tolist()
+  x_train += mel_medium.tolist()
+  x_train += mel_small.tolist()
+  x_train = np.array(x_train)
+  
+  for i in range(len(waves)):
+    mel_large =  librosa.feature.melspectrogram(y=waves[i],sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+    mel_medium =  librosa.feature.melspectrogram(y=waves[i],sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+    mel_small =  librosa.feature.melspectrogram(y=waves[i],sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+    x_train = mel_large.tolist()
+    x_train += mel_medium.tolist()
+    x_train += mel_small.tolist()
+    x_train = np.array(x_train)
 
 
 
