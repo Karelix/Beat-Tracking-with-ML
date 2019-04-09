@@ -69,10 +69,10 @@ def gen_ground_truth(time_list,sr,hops,duration,offset):
         curr += interval
   return ground_truth
 
-def random_batch(exc):
+def mixed_songs(exc):
   nums = []
   batch_list = []
-  batch = 32
+  batch = 67-13
   for i in range(batch):
     n = random.randint(0,66)
     while n in nums or n in exc:
@@ -135,40 +135,70 @@ model = Sequential()
 
 # Input Layer
 units = 256
-model.add(Bidirectional(LSTM(units=units,return_sequences=True),input_shape=))
+model.add(Bidirectional(LSTM(units=units,return_sequences=True),input_shape=(517,384)))
 
 # Second Layer
 model.add(Bidirectional(LSTM(units=units,return_sequences=True)))
 
+#
+model.add(Bidirectional(LSTM(units=256,return_sequences=True)))
+
 # Output Layer
-output_units = 517
-model.add(Dense(output_units=output_units))
+output_units = 1
+model.add(TimeDistributed(Dense(units=output_units,activation = 'sigmoid')))
 
-for epoch in range(100):
-  # Generate train batch for current epoch
-  batch_list = random_batch(exc)
-  # Load the waves for the current epoch
-  waves = load_songs(batch_list,3,30)
-  # Generate ground truths for the current epoch
-  ground_truths = [gen_ground_truth(beats[i],22050,hops,3,30) for (i,_) in batch_list]
+# Compiling RNN
+model.compile(optimizer='adam', loss='binary_crossentropy',metrics=['accuracy'])
+
+# Generate train batch for current epoch
+song_list = mixed_songs(exc)
+# Load the waves for the current epoch
+waves = load_songs(song_list,3,30)
+# Generate ground truths for the current epoch
+ground_truths = [gen_ground_truth(beats[i],22050,hops,3,30) for (i,_) in song_list]
+
+
+# Generate training inputs for the current epoch
+#  mel_large =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+#  mel_medium =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+#  mel_small =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+#  x_train = mel_large.tolist()
+#  x_train += mel_medium.tolist()
+#  x_train += mel_small.tolist()
+#  x_train = np.array(x_train)
+#  x_train = np.reshape(x_train,(384,517,1))
+x_train = []
+for i in range(len(waves)):
+  mel_large =  librosa.feature.melspectrogram(y=waves[i],sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+  mel_medium =  librosa.feature.melspectrogram(y=waves[i],sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+  mel_small =  librosa.feature.melspectrogram(y=waves[i],sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+  x = mel_large.tolist()
+  x += mel_medium.tolist()
+  x += mel_small.tolist()
+  x = np.array(x).reshape((517,384))
+  x_train.append(x)
   
-  # Generate training inputs for the current epoch
-  mel_large =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-  mel_medium =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-  mel_small =  librosa.feature.melspectrogram(y=waves[1],sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-  x_train = mel_large.tolist()
-  x_train += mel_medium.tolist()
-  x_train += mel_small.tolist()
-  x_train = np.array(x_train)
-  
-  for i in range(len(waves)):
-    mel_large =  librosa.feature.melspectrogram(y=waves[i],sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-    mel_medium =  librosa.feature.melspectrogram(y=waves[i],sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-    mel_small =  librosa.feature.melspectrogram(y=waves[i],sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-    x_train = mel_large.tolist()
-    x_train += mel_medium.tolist()
-    x_train += mel_small.tolist()
-    x_train = np.array(x_train)
+x_train = np.array(x_train)
+#  x_train = np.reshape(x_train,(517,384))
+model.fit(x_train,np.array(ground_truths).reshape(-1,517,1),epochs=100,batch_size=32,verbose=1,validation_split=0.2)
+    
+wave = load_songs([(57,'.flac')],3,30)[0]
+grou = gen_ground_truth(beats[57],22050,hops,3,30)
+mel_large =  librosa.feature.melspectrogram(y=wave,sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+mel_medium =  librosa.feature.melspectrogram(y=wave,sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+mel_small =  librosa.feature.melspectrogram(y=wave,sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+x_train = mel_large.tolist()
+x_train += mel_medium.tolist()
+x_train += mel_small.tolist()
+x_train = np.array(x_train)
+x_train = np.reshape(x_train,(1,517,384))
+y = model.predict(x_train).reshape(1,517)
+
+ones = [i for i in range(len(grou)) if grou[i] == 1]
+
+import pickle
+filename1 = 'beat_tracking_model.sav'
+pickle.dump(model, open(filename1, 'xb'))
 
 
 
@@ -215,78 +245,77 @@ for epoch in range(100):
 
 
 
-
-#y, sr = librosa.load('Dystopia.mp3',offset=30.0,duration=30.0)
-
-
-
-
-
-
-stft_large = librosa.stft(y,n_fft=nft_large)
-mel_large =  librosa.feature.melspectrogram(y=y,sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-stft_medium = librosa.stft(y,n_fft=nft_medium)
-mel_medium =  librosa.feature.melspectrogram(y=y,sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-stft_small = librosa.stft(y,n_fft=nft_small)
-mel_small =  librosa.feature.melspectrogram(y=y,sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
-
-# Plotting spectrograms#
-plt.figure()
-dis.specshow(librosa.amplitude_to_db(stft_large,ref=1.),y_axis='log',x_axis='time')
-plt.title('Power Spectrogram (Large N_ft)')
-plt.tight_layout()
-# Mel spectrogram large window
-plt.figure(figsize=(10,4))
-dis.specshow(librosa.power_to_db(mel_large,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
-plt.colorbar(format='%+2.0f dB')
-plt.title('Mel spectrogram (Large Nfft)')
-plt.tight_layout()
-
-plt.figure()
-dis.specshow(librosa.amplitude_to_db(stft_medium,ref=1.),y_axis='log',x_axis='time')
-plt.title('Power Spectrogram (Medium N_ft)')
-plt.tight_layout()
-# Mel spectrogram medium window
-plt.figure(figsize=(10,4))
-dis.specshow(librosa.power_to_db(mel_medium,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
-plt.colorbar(format='%+2.0f dB')
-plt.title('Mel spectrogram (Medium Nfft)')
-plt.tight_layout()
-
-plt.figure()
-dis.specshow(librosa.amplitude_to_db(stft_small,ref=1.),y_axis='log',x_axis='time')
-plt.title('Power Spectrogram (Small N_ft)')
-plt.tight_layout()
-# Mel spectrogram small window
-plt.figure(figsize=(10,4))
-dis.specshow(librosa.power_to_db(mel_small,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
-plt.colorbar(format='%+2.0f dB')
-plt.title('Mel spectrogram (Small Nfft)')
-plt.tight_layout()
-
-mel_large = librosa.power_to_db(mel_large,ref=1.)
-mel_medium = librosa.power_to_db(mel_medium,ref=1.)
-mel_small = librosa.power_to_db(mel_small,ref=1.)
-
-# Plotting after upsampling
-# Mel spectrogram large window
-plt.figure(figsize=(10,4))
-dis.specshow(librosa.power_to_db(mel_large,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
-plt.colorbar(format='%+2.0f dB')
-plt.title('Mel spectrogram (Large Nfft)')
-plt.tight_layout()
-
-# Mel spectrogram medium window
-plt.figure(figsize=(10,4))
-dis.specshow(librosa.power_to_db(mel_medium,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
-plt.colorbar(format='%+2.0f dB')
-plt.title('Mel spectrogram (Medium Nfft)')
-plt.tight_layout()
-
-# Mel spectrogram small window
-plt.figure(figsize=(10,4))
-dis.specshow(librosa.power_to_db(mel_small,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
-plt.colorbar(format='%+2.0f dB')
-plt.title('Mel spectrogram (Small Nfft)')
-plt.tight_layout()
+##y, sr = librosa.load('Dystopia.mp3',offset=30.0,duration=30.0)
+#
+#
+#
+#
+#
+#
+#stft_large = librosa.stft(y,n_fft=nft_large)
+#mel_large =  librosa.feature.melspectrogram(y=y,sr=sr,n_fft=nft_large,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+#stft_medium = librosa.stft(y,n_fft=nft_medium)
+#mel_medium =  librosa.feature.melspectrogram(y=y,sr=sr,n_fft=nft_medium,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+#stft_small = librosa.stft(y,n_fft=nft_small)
+#mel_small =  librosa.feature.melspectrogram(y=y,sr=sr,n_fft=nft_small,fmin=0,fmax=8000,hop_length=int(nft_small/4))
+#
+## Plotting spectrograms#
+#plt.figure()
+#dis.specshow(librosa.amplitude_to_db(stft_large,ref=1.),y_axis='log',x_axis='time')
+#plt.title('Power Spectrogram (Large N_ft)')
+#plt.tight_layout()
+## Mel spectrogram large window
+#plt.figure(figsize=(10,4))
+#dis.specshow(librosa.power_to_db(mel_large,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
+#plt.colorbar(format='%+2.0f dB')
+#plt.title('Mel spectrogram (Large Nfft)')
+#plt.tight_layout()
+#
+#plt.figure()
+#dis.specshow(librosa.amplitude_to_db(stft_medium,ref=1.),y_axis='log',x_axis='time')
+#plt.title('Power Spectrogram (Medium N_ft)')
+#plt.tight_layout()
+## Mel spectrogram medium window
+#plt.figure(figsize=(10,4))
+#dis.specshow(librosa.power_to_db(mel_medium,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
+#plt.colorbar(format='%+2.0f dB')
+#plt.title('Mel spectrogram (Medium Nfft)')
+#plt.tight_layout()
+#
+#plt.figure()
+#dis.specshow(librosa.amplitude_to_db(stft_small,ref=1.),y_axis='log',x_axis='time')
+#plt.title('Power Spectrogram (Small N_ft)')
+#plt.tight_layout()
+## Mel spectrogram small window
+#plt.figure(figsize=(10,4))
+#dis.specshow(librosa.power_to_db(mel_small,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
+#plt.colorbar(format='%+2.0f dB')
+#plt.title('Mel spectrogram (Small Nfft)')
+#plt.tight_layout()
+#
+#mel_large = librosa.power_to_db(mel_large,ref=1.)
+#mel_medium = librosa.power_to_db(mel_medium,ref=1.)
+#mel_small = librosa.power_to_db(mel_small,ref=1.)
+#
+## Plotting after upsampling
+## Mel spectrogram large window
+#plt.figure(figsize=(10,4))
+#dis.specshow(librosa.power_to_db(mel_large,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
+#plt.colorbar(format='%+2.0f dB')
+#plt.title('Mel spectrogram (Large Nfft)')
+#plt.tight_layout()
+#
+## Mel spectrogram medium window
+#plt.figure(figsize=(10,4))
+#dis.specshow(librosa.power_to_db(mel_medium,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
+#plt.colorbar(format='%+2.0f dB')
+#plt.title('Mel spectrogram (Medium Nfft)')
+#plt.tight_layout()
+#
+## Mel spectrogram small window
+#plt.figure(figsize=(10,4))
+#dis.specshow(librosa.power_to_db(mel_small,ref=1.),y_axis='mel',fmax=8000,x_axis='frames')
+#plt.colorbar(format='%+2.0f dB')
+#plt.title('Mel spectrogram (Small Nfft)')
+#plt.tight_layout()
 
